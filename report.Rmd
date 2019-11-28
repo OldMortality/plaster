@@ -1,0 +1,39 @@
+---
+title: "To tape or not to tape"
+author: "Michel de Lange"
+date: "28/11/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## This is my analysis of the plasters dataset.
+
+```{r echo=F}
+setwd('~/Documents/plasters')
+df <- read.csv('Adhesive Study Complete Dataset.csv',header=T)
+num.start <- length(unique(df$participant_id))
+
+df <- df[which(df$q_complete == 1),]
+df <- df[which(df$sensor_loss %in% c(0,1)),]
+df <- df[which(df$patch_use %in% c(0,1)),]
+
+df$patch_use <- factor(df$patch_use)
+df$sensor_loss <- factor(df$sensor_loss)
+
+num.part <- length(unique(df$participant_id))
+
+
+```
+
+We have a total of `r num.start` participants. Two participants did not return any complete questionaires, so we are left with `r num.part` participants Between them, these `r num.part` people returned `r length(which(df$q_complete == 1))` complete questionaires, i.e about `r round(length(which(df$q_complete == 1))/num.part,1)` on average. Each questionaire contains a single answer (patch lost or not), and the main variable of interest is whether the participants were using a plaster. Let's cross-table this:
+
+```{r echo=F}
+
+table(df$sensor_loss,df$patch_use)
+f <- fisher.test(table(df$sensor_loss,df$patch_use))
+```
+
+
