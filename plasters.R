@@ -2,7 +2,7 @@ library(lme4)
 
 
 
-setwd('~/Documents/plasters')
+setwd('~/Documents/plaster')
 df <- read.csv('Adhesive Study Complete Dataset.csv',header=T)
 colnames(df)
 df <- df[which(df$q_complete == 1),]
@@ -50,5 +50,21 @@ m <- glmer(sensor_loss ~ patch_use + (1|df$participant_id),
 summary(m)
 exp(confint(m))
 
-table(df$sensor_loss,df$patch_use)
+
+m <- data.frame(sensor_loss=df$sensor_loss,patch_use = df$patch_use
+                )
+margin.table(m)
+t <- table(df$sensor_loss,df$patch_use)
+addmargins(t,margin=c(1,2))
+rownames(t) <- c("fred",'joe')
+t
 fisher.test(table(df$sensor_loss,df$patch_use))
+
+
+df.pp <- df[-nrecs,]
+dim(df.pp)
+
+
+m <- glmer(sensor_loss ~ sex + factor(ethnicity) + phase + patch_use +   
+             (1|participant_id),
+           family='binomial',data=df)

@@ -5,15 +5,15 @@ date: "28/11/2019"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, warning=FALSE, echo=F}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## This is my analysis of the plasters dataset.
 
 ```{r echo=F}
-setwd('~/Documents/plasters')
-df <- read.csv('Adhesive Study Complete Dataset.csv',header=T)
+
+df <- read.csv('~/Documents/plaster/Adhesive Study Complete Dataset.csv',header=T)
 num.start <- length(unique(df$participant_id))
 
 df <- df[which(df$q_complete == 1),]
@@ -28,12 +28,123 @@ num.part <- length(unique(df$participant_id))
 
 ```
 
-We have a total of `r num.start` participants. Two participants did not return any complete questionaires, so we are left with `r num.part` participants Between them, these `r num.part` people returned `r length(which(df$q_complete == 1))` complete questionaires, i.e about `r round(length(which(df$q_complete == 1))/num.part,1)` on average. Each questionaire contains a single answer (patch lost or not), and the main variable of interest is whether the participants were using a plaster. Let's cross-table this:
+We have a total of `r num.start` participants. Two participants did not return any complete questionaires, so we are left with `r num.part` participants Between them, these `r num.part` people returned `r length(which(df$q_complete == 1))` complete questionaires, i.e `r round(length(which(df$q_complete == 1))/num.part,1)` on average. Each questionaire contains a single answer (patch lost or not), and the main variable of interest is whether the participants were using a plaster. Let's cross-table this:
 
 ```{r echo=F}
 
-table(df$sensor_loss,df$patch_use)
+m <- data.frame(sensor_loss=df$sensor_loss,patch_use = df$patch_use)
+t <- table(m)
+addmargins(t,margin=c(1,2))
+propLost <- round(100*sum(t[2,]/sum(t)),0)
+t2 <- round(prop.table(t),2)
+addmargins(t2,margin=c(1,2))
+
 f <- fisher.test(table(df$sensor_loss,df$patch_use))
 ```
 
+We have `r t[1,1]` (`r round(100 * t2[1,1],0) ` % of all) questionaires, where the sensor was not lost and no patch was not worn; There are `r t[1,2]` instances where the patch was used and the sensor was not lost, and so on.  The sensor was reported lost in `r propLost` % of all surveys.
+
+Let's show the percentages by patch use: 
+
+```{r }
+t3 <- round(prop.table(t,margin=2),2)
+addmargins(t3,1)
+```
+
+If a patch was used, the sensor was lost in `r t3[2,2]` % of cases. If a patch was not used, the sensor was lost in `r t3[2,1] `% of cases. 
+
+We can do Fisher's exact test to tell us whether there is any evidence for a relationship between patch use and sensor loss. Here are the results:
+
+```{r }
+fisher.test(table(df$sensor_loss,df$patch_use))
+```
+
+We see that the confidence interval includes the value 1, and we have no evidence for a relationship between patch use and plaster loss. 
+
+This analysis disregards lack of independence between observations. We have on average 10 questionaires for each participant. We can reasonably expect factors leading to sensor loss and patch use, to be correlated for the same individual, and hence Fisher's exact test is not strictly appropriate. It is, however, a good first shot for looking at the relationship between patch use and sensor loss.
+
+There may also be confounders: Things which influence sensor loss, which cancel out overall, so we don't see them in the 2-way table. We can overcome these two problems (lack of independence, caused by repeated observations on the same individual, and confounding), by fitting a linear mixed model. The response variable will be patch loss, and the predictor variable will be -in the first instance- patch use. We can add demographic variables, and whatever else we may have at hand, to check for confounding. The thing of interest will be the confidence interval for the odds ratio (odds of losing a sensor when wearing a patch / odds of losing a sensor when not wearing a patch).
+
+```{r echo=F }
+library(lme4)
+m <- glmer(sensor_loss ~ patch_use + (1|participant_id),
+    family='binomial',data=df)
+s <- summary(m)
+lower <- round(exp(s$coefficients[2,1] - 2*s$coefficients[2,2]),1)
+upper <- round(exp(s$coefficients[2,1] + 2*s$coefficients[2,2]),1)
+```
+
+If we just use patch use as the only predictor variable, this confidence interval for the odds ratio will be from `r lower` to `r upper`. This includes the value 1, so we have no evidence for an effect of patch use. We can include other available predictors, such as sex, the nz deprivation group, 
+
+```{r echo=F }
+df$nzdepgroup <- 'LOW'
+df[which(df$nzdep %in% c(4,5,6,7)),'nzdepgroup'] <- "MEDIUM"
+df[which(df$nzdep %in% c(8,9,10)),'nzdepgroup'] <- "HIGH"
+df$nzdepgroup <- factor(df$nzdepgroup)
+df$nzdepgroup <- relevel(df$nzdepgroup,ref='LOW')
+df$sex <- factor(df$sex)
+df$phase <- factor(df$phase)
+
+m <- glmer(sensor_loss ~ sex + nzdepgroup + phase + patch_use +   
+             (1|participant_id),
+           family='binomial',data=df)
+#summary(m)
+exp(confint(m))
+```
+
+We see that all confidence intervals for the odds ratios include the value 1. Nothing is significant, and the CI for patch use is similar to what we had before. So far, we have no evidence for an effect of patch use on sensor loss.
+
+##Compliance
+
+Let's see how compliant to the protocol our participants have been:
+
+```{r echo=F }
+dft <- data.frame(allocation=df$patch_allocation,use=df$patch_use)
+t <- table(dft)
+addmargins(t)
+
+nrecs <- which(df$patch_allocation != df$patch_use)
+non.comp <- unique(df[nrecs,"participant_id"])
+con.comp.num <- length(non.comp)
+```
+
+So we have `r t[1,2]` surveys people who used a patch while they should not, and `r t[2,1]` who did not wear a patch while they should. That's `r t[1,2]+t[2,1]` non-compliant surveys, or `r round(100 * (t[1,2]+t[2,1])/sum(t) )` % of surveys. These non-compliant surveys came from `r con.comp.num` people. Hence, almost none of our participants have fully complied with the protocol. On the positive side, Fisher's exact test on this table does show that there is a relationship between the protocol and what people actually do :)
+
+In Intention to Treat analysis, we allocate people according to what they should have done, rather than to what they actually did. We can repeat the linear mixed model from above, but use patch allocation as the predictor, rather than patch use.
+
+```{r echo=F }
+m <- glmer(sensor_loss ~ sex + nzdepgroup + phase + patch_allocation +   
+             (1|participant_id),
+           family='binomial',data=df)
+#summary(m)
+exp(confint(m))
+```
+
+We see that this does not change the conclusion: The confidence interval for patch allocation contains the value 1, and so there is no significant relationship between patch allocation and sensor loss.
+
+In Per Protocol analysis, we remove all `r length(nrecs)` non compliant records, leaving us with `r dim(df)[1]-length(nrecs)` surveys. We can hardly remove all records for anyone, who did not fully comply, because we would have almost no records left. 
+
+
+
+```{r }
+# remove non-compliant records
+df.pp <- df[-nrecs,]
+dim(df.pp)
+m <- glmer(sensor_loss ~ sex + nzdepgroup + phase + patch_use +   
+             (1|participant_id),
+           family='binomial',data=df.pp)
+#summary(m)
+exp(confint(m))
+```
+
+Again, patch use is not significant.
+
+
+
+## Conclusions
+
+
+The sensor was reported lost in `r propLost` % of surveys. We have found no evidence for effectiveness patches to prevent sensor loss. This is the case for intention to treat analysis, per protocol analysis, or when we allocate people to what they actually did.  
+
+We seem to have almost no data in the columns for sensor loss reason, or for adverse events, so I doubt anything can be gained from including those in the analysis. All particpants are of similar age (range 13 to 21), so I don't think there is much mileage to be had there. It may be that -with only `r num.start` participants, the study was seriously underpowered. However, it is also possible that the patches bring no benefit in preventing sensor loss.
 
