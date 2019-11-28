@@ -126,7 +126,7 @@ In Per Protocol analysis, we remove all `r length(nrecs)` non compliant records,
 
 
 
-```{r }
+```{r echo = F}
 # remove non-compliant records
 df.pp <- df[-nrecs,]
 dim(df.pp)
