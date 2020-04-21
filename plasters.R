@@ -10,9 +10,21 @@ df <- df[which(df$sensor_loss %in% c(0,1)),]
 df <- df[which(df$patch_use %in% c(0,1)),]
 df$patch_use <- factor(df$patch_use)
 df$sensor_loss <- factor(df$sensor_loss)
+m0 <- glmer(sensor_loss ~ 1 + (1|df$participant_id),
+            family='binomial',data=df)
+
+m <- glmer(sensor_loss ~ patch_allocation + (1|df$participant_id),
+           family='binomial',data=df)
+anova(m0,m)
+
+
+
+m0 <- glmer(sensor_loss ~ 1 + (1|df$participant_id),
+           family='binomial',data=df)
 
 m <- glmer(sensor_loss ~ patch_use + (1|df$participant_id),
     family='binomial',data=df)
+anova(m0,m)
 summary(m)
 exp(confint(m))
 
@@ -23,7 +35,7 @@ table(df$age)
 
 df$sex <- factor(df$sex)
 df$phase <- factor(df$phase)
-
+  
 
 m <- glmer(sensor_loss ~ sex + patch_use + nzdepgroup +  
              (1|df$participant_id), data=df, family='binomial')

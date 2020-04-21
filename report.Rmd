@@ -5,13 +5,13 @@ date: "28/11/2019"
 output: html_document
 ---
 
-```{r setup, include=FALSE, warning=FALSE, echo=F}
+```{r setup, include=FALSE, warning=FALSE, echo=T}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## 
 
-```{r echo=F}
+```{r }
 
 df <- read.csv('~/Documents/plaster/Adhesive Study Complete Dataset.csv',header=T)
 num.start <- length(unique(df$participant_id))
@@ -30,7 +30,7 @@ num.part <- length(unique(df$participant_id))
 
 We have a total of `r num.start` participants. Two participants did not return any complete questionaires, so we are left with `r num.part` participants Between them, these `r num.part` people returned `r length(which(df$q_complete == 1))` complete questionaires, i.e `r round(length(which(df$q_complete == 1))/num.part,1)` on average. Each questionaire contains a single answer (patch lost or not), and the main variable of interest is whether the participants were using a plaster. Let's cross-table this:
 
-```{r echo=F}
+```{r }
 
 m <- data.frame(sensor_loss=df$sensor_loss,patch_use = df$patch_use)
 t <- table(m)
@@ -67,7 +67,7 @@ Let's look at our data. The plot below shows the proportion of sensor loss for e
 
 
 
-```{r echo=F}
+```{r }
 p.nopatch <- vector()
 p.patch <- vector()
 n.patch <- vector()
@@ -119,7 +119,7 @@ Nevertheless, it is clearly not jumping out at us that wearing a patch is preven
 
 There could be confounders: Things which influence sensor loss, which cancel each other out, so we don't see them in the 2-way table. We can overcome these two problems (lack of independence, caused by repeated observations on the same individual, and confounding), by fitting a linear mixed model. The response variable will be patch loss, and the predictor variable will be -in the first instance- patch use. We can add demographic variables, and whatever else we may have at hand, to check for confounding. The thing of interest will be the confidence interval for the odds ratio (odds of losing a sensor when wearing a patch / odds of losing a sensor when not wearing a patch).
 
-```{r echo=F }
+```{r  }
 library(lme4)
 m <- glmer(sensor_loss ~ patch_use + (1|participant_id),
     family='binomial',data=df)
@@ -130,7 +130,7 @@ upper <- round(exp(s$coefficients[2,1] + 2*s$coefficients[2,2]),1)
 
 If we just use patch use as the only predictor variable, this confidence interval for the odds ratio will be from `r lower` to `r upper`. This includes the value 1, so we have no evidence for an effect of patch use. We can include other available predictors, such as sex, the nz deprivation group. 
 
-```{r echo=F }
+```{r  }
 df$nzdepgroup <- 'LOW'
 df[which(df$nzdep %in% c(4,5,6,7)),'nzdepgroup'] <- "MEDIUM"
 df[which(df$nzdep %in% c(8,9,10)),'nzdepgroup'] <- "HIGH"
@@ -155,7 +155,7 @@ The study phase was one of the predictors, so we can see that it makes no differ
 
 Let's see how compliant to the protocol our participants have been:
 
-```{r echo=F }
+```{r  }
 dft <- data.frame(allocation=df$patch_allocation,use=df$patch_use)
 t <- table(dft)
 addmargins(t)
@@ -169,7 +169,7 @@ So we have `r t[1,2]` surveys of people who used a patch while they should not, 
 
 In Intention to Treat analysis, we allocate people according to what they should have done, rather than to what they actually did. This would tell us something about the effect of telling someone to wear a patch (as opposed to the effect of wearing one.) We can repeat the linear mixed model from above, but use patch allocation as the predictor, rather than patch use.
 
-```{r echo=F }
+```{r  }
 m <- glmer(sensor_loss ~ sex + nzdepgroup + phase + patch_allocation +   
              (1|participant_id),
            family='binomial',data=df)
